@@ -3,9 +3,9 @@
 #include <EEPROM.h>
 
 #define buzzer 9
-#define trigPin 11
+#define motor_fr 10
+#define motor_bk 11
 #define echoPin 12
-#define motor_pin 10
 #define ir_sensor 13
 
 // User Data Declarations
@@ -40,10 +40,12 @@ LiquidCrystal lcd(A0,A1,A2,A3,A4,A5); // Creates an LC object. Parameters: (rs, 
 
 void setup() {
   // put your setup code here, to run once:
-  pinMode(motor_pin, OUTPUT); 
+  pinMode(motor_fr, OUTPUT); 
+  pinMode(motor_bk, OUTPUT); 
   pinMode(buzzer, OUTPUT); // Set buzzer as an output
-  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
-  pinMode(echoPin, INPUT);
+  
+//  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+//  pinMode(echoPin, INPUT);
 
   // Initialize the IR Sensor
   pinMode(ir_sensor,INPUT);
@@ -77,14 +79,19 @@ void loop() {
   // put your main code here, to run repeatedly:
   int passcode_attempts = 0;
   boolean pass_succ = false;
-  boolean ir_data = digitalRead(ir_sensor);
-  while(ir_data){ // IR sensor True = No detection. False = Detection
-    lcd.print("Come Closer ...");
+  int ir_data = HIGH;
+  boolean written = false;
+  while(ir_data != LOW){ // IR sensor HIGH = No detection. LOW = Detection
+    if(!written){
+        lcd.print("Come Closer ...");
+        written = true;
+    }
+    ir_data = digitalRead(ir_sensor);
   }
   // Prompt User for password. On 3 unsuccessful attempts, raise the alarm
   while(passcode_attempts <= 3 && !pass_succ){
     user_passcode = prompt_password();
-    if(def_passcode == user_password)
+    if(def_passcode == user_passcode)
       pass_succ = true;  
   }
   if(passcode_attempts > 3 && !pass_succ){ // Incorrect Password entry after 3 attempts
@@ -92,19 +99,22 @@ void loop() {
     delay(10000);
   }
   else{ // Correct Password entry
-    // Open the Door using the motor (uses around 2s of motor work)
-    digitalWrite(motor_pin, HIGH);
+     // Open the Door using the motor (uses around 2s of motor work)
+    digitalWrite(motor_fr, HIGH);
+    digitalWrite(motor_bk, LOW);
     delay(2000);
-    digitalWrite(motor_pin, LOW);
+    digitalWrite(motor_fr, LOW);
+    digitalWrite(motor_bk, HIGH);
   }
     
 }
 
 String prompt_password(){
+  int k = 0;
   boolean activated = true;
   boolean typing = false;
   String password;
-  
+
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Enter Password:");
@@ -115,13 +125,14 @@ String prompt_password(){
   // Stop recording password when user presses A (F1 on this keypad)
   while(activated){
       keypressed = myKeypad.getKey();
-      tone(buzzer, 2000, 100);
       if(!typing){  
         lcd.clear();
         lcd.setCursor(0,0);
+        lcd.print("Enter Password:");
         typing = true;
       }
       if (keypressed != NO_KEY){
+        tone(buzzer, 2000, 50);
         if (keypressed == '0' || keypressed == '1' || keypressed == '2' || keypressed == '3' ||
             keypressed == '4' || keypressed == '5' || keypressed == '6' || keypressed == '7' ||
             keypressed == '8' || keypressed == '9' ) {
@@ -131,7 +142,16 @@ String prompt_password(){
           k++;
         }
         else if(keypressed == 'A'){
+          tone(buzzer, 2000, 50);
           return password;  
+        }
+        else if(keypressed =='B'){
+          tone(buzzer, 2000, 50);
+          password = "";
+          lcd.clear();
+          lcd.setCursor(0,0);
+          lcd.print("Enter Password:");
+          lcd.setCursor(0,1);
         }
     }    
   }
