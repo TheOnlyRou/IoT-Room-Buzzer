@@ -92,7 +92,9 @@ void loop() {
   while(passcode_attempts <= 3 && !pass_succ){
     user_passcode = prompt_password();
     if(def_passcode == user_passcode)
-      pass_succ = true;  
+      pass_succ = true;
+      lcd.clear();
+      lcd.setCursor(0,0);  
   }
   if(passcode_attempts > 3 && !pass_succ){ // Incorrect Password entry after 3 attempts
     raise_alarm(5);
