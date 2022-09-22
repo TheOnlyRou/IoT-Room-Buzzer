@@ -1,5 +1,6 @@
 #include <LiquidCrystal.h> // includes the LiquidCrystal Library 
 #include <Keypad.h>
+#include <EEPROM.h>
 
 #define buzzer 9
 #define trigPin 11
@@ -16,9 +17,6 @@ String user_name = "User";
 boolean alarm_state = false;
 boolean correct_pass = true;
 boolean pass_changed = false;
-
-//Sensor Declarations
-boolean IR=0;
 
 // Keypad declarations
 const byte ROWS = 4; //four rows
@@ -68,7 +66,7 @@ void setup() {
   // Check if pass_length is more than 4 (mainly to prevent it loading on initial run, as there would be no password stored yet)
   if(pass_length < 4){
       for(int i=1; i<pass_length/2;i++){
-        String num_num = EEPROM.read(i);
+        String num_num = (char*)EEPROM.read(i);
         system_password += num_num;
     }
     def_passcode = system_password;
@@ -79,14 +77,15 @@ void loop() {
   // put your main code here, to run repeatedly:
   int passcode_attempts = 0;
   boolean pass_succ = false;
-  ir_data = digitalRead(ir_sensor);
+  boolean ir_data = digitalRead(ir_sensor);
   while(ir_data){ // IR sensor True = No detection. False = Detection
     lcd.print("Come Closer ...");
   }
   // Prompt User for password. On 3 unsuccessful attempts, raise the alarm
   while(passcode_attempts <= 3 && !pass_succ){
-    user_password = prompt_password();
-    if(def_passcode == user_password)  
+    user_passcode = prompt_password();
+    if(def_passcode == user_password)
+      pass_succ = true;  
   }
   if(passcode_attempts > 3 && !pass_succ){ // Incorrect Password entry after 3 attempts
     raise_alarm(5);
@@ -102,8 +101,8 @@ void loop() {
 }
 
 String prompt_password(){
-  boolean activated = true
-  boolean typing = false
+  boolean activated = true;
+  boolean typing = false;
   String password;
   
   lcd.clear();
