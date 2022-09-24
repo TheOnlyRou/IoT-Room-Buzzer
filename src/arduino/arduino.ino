@@ -62,7 +62,7 @@ void setup() {
   lcd.setCursor(0,0);
   lcd.print("Welcome Home .... ");
   lcd.setCursor(0,1);
-  lcd.print("MR" + user_name);
+  lcd.print("MR. " + user_name);
   delay(5000);
   lcd.clear();
 
@@ -88,12 +88,10 @@ void loop() {
   int passcode_attempts = 0;
   boolean pass_succ = false;
   int ir_data = HIGH;
-  boolean written = false;
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Come Closer ...");
   while(ir_data != LOW){ // IR sensor HIGH = No detection. LOW = Detection
-    if(!written){
-        lcd.print("Come Closer ...");
-        written = true;
-    }
     ir_data = digitalRead(ir_sensor);
   }
   // Prompt User for password. On 3 unsuccessful attempts, raise the alarm
@@ -119,29 +117,37 @@ void loop() {
     raise_alarm(5);
     delay(10000);
   }
-  delay(1000);
-  if(pass_succ){ // Correct Password entry
-    int choice = prompt_action_choice();
+  else{
+    int choice = 0;
     // Open door
-    if(choice == 1){
-      open_door();
-      delay(10000); 
-    }
-    // Change Password
-    else if(choice == 2){
-      change_password();
-      delay(2000);
-    }
-    // Incorrect input. Reprompts action selection
-    else{
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Incorrect Input.");
-      lcd.setCursor(0,1);
-      lcd.print("Please Try again.");
-      prompt_action_choice();
+    choice = prompt_action_choice();
+    while(choice <= 0){
+       if(choice == 1){
+        open_door();
+        delay(10000); 
+      }
+      // Change Password
+      else if(choice == 2){
+        change_password();
+        delay(2000);
+      }
+      else if(choice == -1)
+      {
+        choice = prompt_action_choice();
+      } 
+      // Incorrect input. Reprompts action selection
+      else{
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Incorrect Input.");
+        lcd.setCursor(0,1);
+        lcd.print("Please Try again.");
+        delay(3000);
+        prompt_action_choice();
+      }
     }
   }
+  delay(5000);
 }
 
 
@@ -157,6 +163,7 @@ void open_door(){
 
 // Prompt user to select Action from a menu by pressing the corresponding character on the keypad
 int prompt_action_choice(){
+  boolean activated = true
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Choose an action:");
@@ -164,13 +171,15 @@ int prompt_action_choice(){
   lcd.print("F1: Open Door");
   lcd.setCursor(0,2);
   lcd.print("F2: Change Password");
-  while(true){
+  while(activated){
       keypressed = myKeypad.getKey();
     if(keypressed == 'A'){
       tone(buzzer, 2000, 50);
+      activated = false;
       return 1;  
     } else if(keypressed =='B'){
       tone(buzzer, 2000, 50);
+      activated = false;
       return 2;
     }
     else{
@@ -207,11 +216,13 @@ String prompt_password(){
         }
         else if(keypressed == 'A'){
           tone(buzzer, 2000, 50);
+          activated = false;
           return password;  
         }
         else if(keypressed =='B'){
           tone(buzzer, 2000, 50);
           password = "";
+          k=0;
           lcd.clear();
           lcd.setCursor(0,0);
           lcd.print("Enter Password:");
@@ -226,8 +237,8 @@ String prompt_password(){
 // create a police siren effect
 void raise_alarm(int duration){
   for(int i=0; i<duration; i++){
-    tone(buzzer, 3000, 100);
-    tone(buzzer, 1000, 100);
+    tone(buzzer, 6000, 1000);
+    tone(buzzer, 500, 1000);
   }
 }
 
@@ -247,7 +258,7 @@ void change_password(){
     if(len_passcode%2 != 0){
       len_passcode++;
     }
-    len_passcode = len_passcode/2;
+    len_passcode = len_passcode;
     for (int i = 0 ; i < EEPROM.length() ; i++) {
       EEPROM.write(i, 0);
     }
