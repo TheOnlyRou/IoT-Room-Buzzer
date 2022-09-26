@@ -15,21 +15,16 @@ String def_passcode = "0000";
 String user_passcode;
 String user_name = "User";
 
-// State booleans for system state management
-boolean alarm_state = false;
-boolean correct_pass = true;
-boolean pass_changed = false;
-
 // Keypad declarations
 const byte ROWS = 4; //four rows
-const byte COLS = 4; //four columns
+const byte COLS = 5; //four columns
 char keypressed;
 // Keypad Symbol definition and mapping
 char keyMap[ROWS][COLS] = {
-  {'1','2','3','A'},
-  {'4','5','6','B'},
-  {'7','8','9','C'},
-  {'*','0','#','D'}
+  {'1','2','3','A','-'},
+  {'4','5','6','B','-'},
+  {'7','8','9','C','-'},
+  {'*','0','#','D','-'}
 };
 byte rowPins[ROWS] = {8,7,6,5}; //Row pinouts of the keypad
 byte colPins[COLS] = {4,3,2,1}; //Column pinouts of the keypad
@@ -40,13 +35,14 @@ Keypad myKeypad = Keypad( makeKeymap(keyMap), rowPins, colPins, ROWS, COLS);
 LiquidCrystal lcd(A0,A1,A2,A3,A4,A5); // Creates an LC object. Parameters: (rs, enable, d4, d5, d6, d7) 
 
 void open_door();
-int prompt_action_choice();
+int prompt_action_choice(boolean on_screen);
 void change_password();
 void raise_alarm(int duration);
 String prompt_password();
 
 void setup() {
   // put your setup code here, to run once:
+  Serial.begin(115200);
   pinMode(motor_fr, OUTPUT); 
   pinMode(motor_bk, OUTPUT); 
   pinMode(buzzer, OUTPUT); // Set buzzer as an output
@@ -63,28 +59,37 @@ void setup() {
   lcd.print("Welcome Home .... ");
   lcd.setCursor(0,1);
   lcd.print("MR. " + user_name);
-  delay(5000);
+  delay(2000);
   lcd.clear();
 
+    
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
   // Load System Password from memory
   // Password storage in memory
   // [Pass_length] [NUMNUM] [NUMNUM] [NUMNUM] ....
   String system_password;
   int pass_length = EEPROM.read(0);
-  
+  Serial.print("Loaded Password Length");
+  Serial.print(pass_length);
   // each 2 numbers are stored in 1 byte, hence length/2
   // Check if pass_length is more than 2 (mainly to prevent it loading on initial run, as there would be no password stored yet)
-  if(pass_length < 2){
+  if(pass_length > 2){
       for(int i=1; i<pass_length;i++){
         String num_num = (char*)EEPROM.read(i);
         system_password += num_num;
     }
+      Serial.print("\n");
+      Serial.print(system_password);
     def_passcode = system_password;
-  }  
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
+    lcd.setCursor(0,0);
+    lcd.print("User Password ...");
+    lcd.setCursor(0,1);
+    lcd.print("Loaded!");
+    delay(2000);
+  }
   int passcode_attempts = 0;
   boolean pass_succ = false;
   int ir_data = HIGH;
@@ -97,13 +102,16 @@ void loop() {
   // Prompt User for password. On 3 unsuccessful attempts, raise the alarm
   while(passcode_attempts < 3 && !pass_succ){
     user_passcode = prompt_password();
+    Serial.print("LOG: SUCCESSFUL PASSWORD");
     if(def_passcode == user_passcode){
       pass_succ = true;
       lcd.clear();
       lcd.setCursor(0,0);
+      Serial.print("LOG: SUCCESSFUL PASSWORD");
       break;
      }  
      else{
+      Serial.print("LOG: UNSUCCESSFUL PASSWORD");
       lcd.clear();
       lcd.setCursor(0,0);
       lcd.print("Incorrect Password.");
@@ -118,11 +126,12 @@ void loop() {
     delay(10000);
   }
   else{
-    int choice = 0;
-    // Open door
-    choice = prompt_action_choice();
-    while(choice <= 0){
-       if(choice == 1){
+    int choice = 0;    
+    choice = prompt_action_choice(false);
+    Serial.print(choice);    
+
+    if(choice > 0){      
+       if(choice == 1){ // Open door
         open_door();
         delay(10000); 
       }
@@ -133,7 +142,7 @@ void loop() {
       }
       else if(choice == -1)
       {
-        choice = prompt_action_choice();
+        choice = prompt_action_choice(true);
       } 
       // Incorrect input. Reprompts action selection
       else{
@@ -143,7 +152,7 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("Please Try again.");
         delay(3000);
-        prompt_action_choice();
+        return prompt_action_choice(false);
       }
     }
   }
@@ -154,6 +163,10 @@ void loop() {
 
 // Open the Door using the motor (uses around 2s of motor work)
 void open_door(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  Serial.print("LOG: OPENING DOOR\n");
+  lcd.print("Opening Door...");
   digitalWrite(motor_fr, HIGH);
   digitalWrite(motor_bk, LOW);
   delay(2000);
@@ -162,27 +175,33 @@ void open_door(){
 }
 
 // Prompt user to select Action from a menu by pressing the corresponding character on the keypad
-int prompt_action_choice(){
-  boolean activated = true
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Choose an action:");
-  lcd.setCursor(0,1);
-  lcd.print("F1: Open Door");
-  lcd.setCursor(0,2);
-  lcd.print("F2: Change Password");
+int prompt_action_choice(boolean on_screen){
+  boolean activated = true;
+  if(!on_screen){
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Choose an action:");
+    lcd.setCursor(0,1);
+    lcd.print("Start: Open Door");
+    lcd.setCursor(0,2);
+    lcd.print("Stop:Change Password");
+    Serial.print("LOG: OPTIONS PRINTED\n");
+  }
   while(activated){
-      keypressed = myKeypad.getKey();
-    if(keypressed == 'A'){
+    keypressed = myKeypad.getKey();
+    if(keypressed == '*'){
+      Serial.print("LOG: KEY ENTERED F1: OPEN DOOR\n");
       tone(buzzer, 2000, 50);
       activated = false;
       return 1;  
-    } else if(keypressed =='B'){
+    } else if(keypressed =='#'){
+      Serial.print("LOG: KEY ENTERED F2: CHANGE PASSWORD\n");
       tone(buzzer, 2000, 50);
       activated = false;
       return 2;
     }
-    else{
+    else if(keypressed != NO_KEY){
+      Serial.print("LOG: KEY ENTERED: UNALLOWED KEY\n");
       return -1;
     }
   }
@@ -198,7 +217,7 @@ String prompt_password(){
   lcd.setCursor(0,0);
   lcd.print("Enter Password:");
   lcd.setCursor(0,1);
-  lcd.print("Press F1 on done");
+  lcd.print("Press Start on done");
   
   // On Key press, clear screen, then enter an asterisk on every key press.
   // Stop recording password when user presses A (F1 on this keypad)
@@ -214,12 +233,12 @@ String prompt_password(){
           lcd.print("*");
           k++;
         }
-        else if(keypressed == 'A'){
+        else if(keypressed == '*'){
           tone(buzzer, 2000, 50);
           activated = false;
           return password;  
         }
-        else if(keypressed =='B'){
+        else if(keypressed =='#'){
           tone(buzzer, 2000, 50);
           password = "";
           k=0;
@@ -227,7 +246,7 @@ String prompt_password(){
           lcd.setCursor(0,0);
           lcd.print("Enter Password:");
           lcd.setCursor(0,1);
-          lcd.print("Press F1 on done");
+          lcd.print("Press Start on done");
           lcd.setCursor(0,2);
         }
     }    
@@ -244,16 +263,24 @@ void raise_alarm(int duration){
 
 // Prompts user to enter new password, then confirm it. Stores password in EEPROM.
 void change_password(){
+  Serial.print("LOG: CHANGING PASSWORD\n");
   String first_passcode;
   String confirm_passcode;
   int len_passcode = 0;
   first_passcode = prompt_password();
+  Serial.print("LOG: FIRST PASSWORD ENTERED\n");
+  Serial.print(first_passcode);
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Confirm new passcode");
+  delay(2000);
   confirm_passcode = prompt_password();
+  Serial.print("\n LOG: SECOND PASSWORD ENTERED\n");
+  Serial.print(confirm_passcode);
+  
   if(first_passcode == confirm_passcode){
     // Save passcode and return to menu.
+    Serial.print("LOG: PASSWORD MATCH. SAVING\n");
     len_passcode = strlen(confirm_passcode.c_str());
     if(len_passcode%2 != 0){
       len_passcode++;
@@ -276,7 +303,9 @@ void change_password(){
     }
     lcd.clear();
     lcd.setCursor(0,0);
-    lcd.print("Password changed. Returning ...");
+    lcd.print("Password changed.");
+    lcd.setCursor(0,1);
+    lcd.print("Returning ...");
     return;
   }
   else{ // Passwords don't match. Either go to main menu or retry
@@ -291,15 +320,16 @@ void change_password(){
     lcd.print("F2: Return to menu");
     boolean resolved = false;
     while(!resolved){
+      Serial.print("LOG: PASSWORD MISMATCH. USER MUST SELECT ACTION\n");
         keypressed = myKeypad.getKey();
-        if(keypressed == 'A'){
+        if(keypressed == '*'){
         tone(buzzer, 2000, 50);
         resolved = true;
         change_password();  
-      } else if(keypressed =='B'){
+      } else if(keypressed =='#'){
         tone(buzzer, 2000, 50);
         resolved = true;
-        prompt_action_choice();
+        return prompt_action_choice(false);
       }
     }
   }
