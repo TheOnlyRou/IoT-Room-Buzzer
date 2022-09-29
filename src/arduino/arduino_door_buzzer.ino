@@ -39,6 +39,7 @@ int prompt_action_choice(boolean on_screen);
 void change_password();
 void raise_alarm(int duration);
 String prompt_password();
+void clear_eeprom();
 
 void setup() {
   // put your setup code here, to run once:
@@ -70,19 +71,30 @@ void loop() {
   // Load System Password from memory
   // Password storage in memory
   // [Pass_length] [NUMNUM] [NUMNUM] [NUMNUM] ....
+  
+  //clear_eeprom();
   String system_password;
   int pass_length = EEPROM.read(0);
-  Serial.print("Loaded Password Length");
+  Serial.print("Loaded Password Length\n");
   Serial.print(pass_length);
   // each 2 numbers are stored in 1 byte, hence length/2
   // Check if pass_length is more than 2 (mainly to prevent it loading on initial run, as there would be no password stored yet)
+  int int_passcode = 0;
   if(pass_length > 2){
-      for(int i=1; i<pass_length;i++){
-        String num_num = (char*)EEPROM.read(i);
-        system_password += num_num;
+      for(int i=1; i<=pass_length; i++){
+        int num_digit = EEPROM.read(i);
+        Serial.println(num_digit);
+        int_passcode = int_passcode * 10 + num_digit;
+        char* char_digit;
+        itoa(int_passcode,char_digit,10);
+        system_password += char_digit;
     }
-      Serial.print("\n");
-      Serial.print(system_password);
+    char rou [pass_length +1];
+    itoa(int_passcode, rou, 10);
+//    system_password = "" ;
+//    system_password += rou;
+    Serial.print("System Password\n");
+    Serial.print(system_password);
     def_passcode = system_password;
     lcd.setCursor(0,0);
     lcd.print("User Password ...");
@@ -282,24 +294,25 @@ void change_password(){
     // Save passcode and return to menu.
     Serial.print("LOG: PASSWORD MATCH. SAVING\n");
     len_passcode = strlen(confirm_passcode.c_str());
-    if(len_passcode%2 != 0){
-      len_passcode++;
-    }
-    len_passcode = len_passcode;
-    for (int i = 0 ; i < EEPROM.length() ; i++) {
-      EEPROM.write(i, 0);
-    }
+    
+    
+    clear_eeprom();
     EEPROM.write(0, len_passcode);
     char delim[] = "";
     char* ptr = strtok(confirm_passcode.c_str(), delim);
-    while(ptr != NULL)
-    {
-      ptr = strtok(NULL, delim);
-    }
-    String str = "";
+    Serial.println("ptr naw");
+    Serial.println(ptr);
+    //while(ptr != NULL)
+    //{
+      //ptr = strtok(NULL, delim);
+    //}
+   // String str = "";
+    
     for(int i=0;i<len_passcode;i++)
     {
-      EEPROM.write(i+1,ptr[i]);
+      int temp = (int)(ptr[i]) - 48;
+      EEPROM.write(i+1,temp);
+      Serial.println(temp);
     }
     lcd.clear();
     lcd.setCursor(0,0);
@@ -314,10 +327,10 @@ void change_password(){
     lcd.print("Password mismatch.");
     lcd.setCursor(0,1);
     lcd.print("Select action.");
-    lcd.setCursor(0,1);
-    lcd.print("F1: Try again");
-    lcd.setCursor(0,1);
-    lcd.print("F2: Return to menu");
+    lcd.setCursor(0,2);
+    lcd.print("Start: Try again");
+    lcd.setCursor(0,3);
+    lcd.print("Stop: Return to menu");
     boolean resolved = false;
     while(!resolved){
       Serial.print("LOG: PASSWORD MISMATCH. USER MUST SELECT ACTION\n");
@@ -333,4 +346,11 @@ void change_password(){
       }
     }
   }
+}
+
+// Sets all EEPROM bits to 0, effectively clearing the microcontroller's data
+void clear_eeprom(){
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+  }  
 }
